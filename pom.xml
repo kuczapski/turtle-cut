@@ -5,4 +5,13 @@
   <version>0.0.1-SNAPSHOT</version>
   <name>turtle-cut</name>
   <description>Simple IDE with LOGO like syntax and instructions designed to control laser cutters and engravers</description>
+  
+  
+  <dependencies>
+  	<dependency>
+  		<groupId>com.fifesoft</groupId>
+  		<artifactId>rsyntaxtextarea</artifactId>
+  		<version>3.1.3</version>
+  	</dependency>
+  </dependencies>
 </project>
