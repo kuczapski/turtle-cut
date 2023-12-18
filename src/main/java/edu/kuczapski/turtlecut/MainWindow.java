@@ -11,6 +11,9 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 
+import javax.swing.AbstractAction;
+import javax.swing.Action;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -22,6 +25,7 @@ import javax.swing.JPanel;
 import javax.swing.JSplitPane;
 import javax.swing.JToolBar;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
@@ -34,7 +38,7 @@ public class MainWindow extends JFrame {
     private RSyntaxTextArea textEditor;
     private JPanel canvas;
     private File currentFile; // To store the currently loaded file
-    private String lastVisitedFolder; // To store the last visited folder
+    private String lastDirectory; // To store the last selected directory
 
     public MainWindow() {
         super("Your Application Name");
@@ -44,19 +48,23 @@ public class MainWindow extends JFrame {
 
         // File menu
         JMenu fileMenu = new JMenu("File");
-        JMenuItem openItem = new JMenuItem("Open");
-        JMenuItem saveItem = new JMenuItem("Save");
-        JMenuItem saveAsItem = new JMenuItem("Save As");
-        JMenuItem exitItem = new JMenuItem("Exit");
 
-        openItem.addActionListener(new ActionListener() {
+        // Using system icons for New, Open, Save
+        Action newAction = new AbstractAction("New", UIManager.getIcon("FileView.fileIcon")) {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                newFile();
+            }
+        };
+
+        Action openAction = new AbstractAction("Open", UIManager.getIcon("FileView.directoryIcon")) {
             @Override
             public void actionPerformed(ActionEvent e) {
                 openFile();
             }
-        });
+        };
 
-        saveItem.addActionListener(new ActionListener() {
+        Action saveAction = new AbstractAction("Save", UIManager.getIcon("FileView.floppyDriveIcon")) {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (currentFile != null) {
@@ -64,6 +72,26 @@ public class MainWindow extends JFrame {
                 } else {
                     saveFileAs();
                 }
+            }
+        };
+
+        Action saveAsAction = new AbstractAction("Save As", UIManager.getIcon("FileView.floppyDriveIcon")) {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                saveFileAs();
+            }
+        };
+
+        JMenuItem newItem = new JMenuItem(newAction);
+        JMenuItem openItem = new JMenuItem(openAction);
+        JMenuItem saveItem = new JMenuItem(saveAction);
+        JMenuItem saveAsItem = new JMenuItem(saveAsAction);
+        JMenuItem exitItem = new JMenuItem("Exit");
+
+        newItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                newFile();
             }
         });
 
@@ -81,6 +109,7 @@ public class MainWindow extends JFrame {
             }
         });
 
+        fileMenu.add(newItem);
         fileMenu.add(openItem);
         fileMenu.add(saveItem);
         fileMenu.add(saveAsItem);
@@ -113,7 +142,55 @@ public class MainWindow extends JFrame {
 
         // Create a toolbar
         JToolBar toolBar = new JToolBar();
-        JButton sampleButton = new JButton("Sample Button");
+        JButton newButton = new JButton(newAction);
+        JButton openButton = new JButton(openAction);
+        JButton saveButton = new JButton(saveAction);
+        JButton saveAsButton = new JButton(saveAsAction);
+        JButton sampleButton = new JButton(new ImageIcon("sample.png")); // You can replace this with an appropriate image
+
+        newButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                newFile();
+            }
+        });
+
+        openButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                openFile();
+            }
+        });
+
+        saveButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (currentFile != null) {
+                    saveToFile(currentFile);
+                } else {
+                    saveFileAs();
+                }
+            }
+        });
+
+        saveAsButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                saveFileAs();
+            }
+        });
+
+        sampleButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // Your custom action for the sample button
+            }
+        });
+
+        toolBar.add(newButton);
+        toolBar.add(openButton);
+        toolBar.add(saveButton);
+        toolBar.add(saveAsButton);
         toolBar.add(sampleButton);
 
         // Create the text editor on the left with syntax highlighting
@@ -129,7 +206,7 @@ public class MainWindow extends JFrame {
 
         // Create a split pane to divide the frame
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, textScrollPane, canvas);
-        splitPane.setDividerLocation(200); // Adjust the initial divider position
+        splitPane.setDividerLocation(0.5); // Set the initial divider location to 50%
 
         // Add the split pane to the frame
         add(splitPane, BorderLayout.CENTER);
@@ -150,21 +227,28 @@ public class MainWindow extends JFrame {
         }
     }
 
+    private void newFile() {
+        // Add your logic for creating a new file (clearing content, resetting variables, etc.)
+        textEditor.setText("");
+        currentFile = null;
+        setTitle("Your Application Name");
+    }
+
     private void openFile() {
         JFileChooser fileChooser = new JFileChooser();
         FileNameExtensionFilter filter = new FileNameExtensionFilter("Cut Files (.cut)", "cut");
         fileChooser.setFileFilter(filter);
 
-        // Set the initial directory to the last visited folder
-        if (lastVisitedFolder != null) {
-            fileChooser.setCurrentDirectory(new File(lastVisitedFolder));
+        // Set the initial directory if it exists
+        if (lastDirectory != null) {
+            fileChooser.setCurrentDirectory(new File(lastDirectory));
         }
 
         int returnValue = fileChooser.showOpenDialog(this);
 
         if (returnValue == JFileChooser.APPROVE_OPTION) {
             currentFile = fileChooser.getSelectedFile();
-            lastVisitedFolder = currentFile.getParent(); // Store the last visited folder
+            lastDirectory = currentFile.getParent(); // Store the last selected directory
             setTitle("Your Application Name - " + currentFile.getName()); // Update window title
 
             try (BufferedReader reader = new BufferedReader(new FileReader(currentFile))) {
@@ -188,22 +272,22 @@ public class MainWindow extends JFrame {
         FileNameExtensionFilter filter = new FileNameExtensionFilter("Cut Files (.cut)", "cut");
         fileChooser.setFileFilter(filter);
 
-        // Set the initial directory to the last visited folder
-        if (lastVisitedFolder != null) {
-            fileChooser.setCurrentDirectory(new File(lastVisitedFolder));
+        // Set the initial directory if it exists
+        if (lastDirectory != null) {
+            fileChooser.setCurrentDirectory(new File(lastDirectory));
         }
 
         int returnValue = fileChooser.showSaveDialog(this);
 
         if (returnValue == JFileChooser.APPROVE_OPTION) {
             currentFile = fileChooser.getSelectedFile();
-            lastVisitedFolder = currentFile.getParent(); // Store the last visited folder
 
             // Append ".cut" extension if not already present
             if (!currentFile.getName().toLowerCase().endsWith(".cut")) {
                 currentFile = new File(currentFile.getAbsolutePath() + ".cut");
             }
 
+            lastDirectory = currentFile.getParent(); // Store the last selected directory
             setTitle("Your Application Name - " + currentFile.getName()); // Update window title
 
             saveToFile(currentFile);
@@ -221,3 +305,4 @@ public class MainWindow extends JFrame {
         });
     }
 }
+
