@@ -34,6 +34,7 @@ public class MainWindow extends JFrame {
     private RSyntaxTextArea textEditor;
     private JPanel canvas;
     private File currentFile; // To store the currently loaded file
+    private String lastVisitedFolder; // To store the last visited folder
 
     public MainWindow() {
         super("Your Application Name");
@@ -154,10 +155,16 @@ public class MainWindow extends JFrame {
         FileNameExtensionFilter filter = new FileNameExtensionFilter("Cut Files (.cut)", "cut");
         fileChooser.setFileFilter(filter);
 
+        // Set the initial directory to the last visited folder
+        if (lastVisitedFolder != null) {
+            fileChooser.setCurrentDirectory(new File(lastVisitedFolder));
+        }
+
         int returnValue = fileChooser.showOpenDialog(this);
 
         if (returnValue == JFileChooser.APPROVE_OPTION) {
             currentFile = fileChooser.getSelectedFile();
+            lastVisitedFolder = currentFile.getParent(); // Store the last visited folder
             setTitle("Your Application Name - " + currentFile.getName()); // Update window title
 
             try (BufferedReader reader = new BufferedReader(new FileReader(currentFile))) {
@@ -181,10 +188,16 @@ public class MainWindow extends JFrame {
         FileNameExtensionFilter filter = new FileNameExtensionFilter("Cut Files (.cut)", "cut");
         fileChooser.setFileFilter(filter);
 
+        // Set the initial directory to the last visited folder
+        if (lastVisitedFolder != null) {
+            fileChooser.setCurrentDirectory(new File(lastVisitedFolder));
+        }
+
         int returnValue = fileChooser.showSaveDialog(this);
 
         if (returnValue == JFileChooser.APPROVE_OPTION) {
             currentFile = fileChooser.getSelectedFile();
+            lastVisitedFolder = currentFile.getParent(); // Store the last visited folder
 
             // Append ".cut" extension if not already present
             if (!currentFile.getName().toLowerCase().endsWith(".cut")) {
