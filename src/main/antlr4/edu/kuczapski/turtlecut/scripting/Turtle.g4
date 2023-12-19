@@ -39,8 +39,8 @@ coordinate: NUM ',' NUM;
 degrees: 'stanga' | 'dreapta' | 'inainte' | (INT 'grade') ;
 length: NUM ('mm'|'cm'|);
 
-INT: [0-9]+ ;
+INT: [0-9]+;
 NUM: [0-9]+('.'[0-9]);
 WS: [ \t\r\n]+;
 
-UNKNOWN: .;
+UNKNOWN: .; 

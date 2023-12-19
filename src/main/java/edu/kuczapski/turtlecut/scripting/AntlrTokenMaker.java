@@ -67,7 +67,7 @@ public class AntlrTokenMaker extends TokenMakerBase {
 			case TurtleLexer.REPEATKEY:
 					return Token.RESERVED_WORD;	
 			
-			default:return  Token.FUNCTION;  // at.getType(); 
+			default:return  Token.COMMENT_KEYWORD;  // at.getType(); 
 		}
 		
 		

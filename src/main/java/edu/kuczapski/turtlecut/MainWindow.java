@@ -246,6 +246,11 @@ public class MainWindow extends JFrame {
         
         textEditor.getSyntaxScheme().getStyle(Token.IDENTIFIER).foreground = Color.CYAN;
         textEditor.getSyntaxScheme().getStyle(Token.FUNCTION).foreground = Color.ORANGE;
+        
+        textEditor.getSyntaxScheme().getStyle(Token.LITERAL_NUMBER_FLOAT).foreground = new Color(0, 200, 200);
+        textEditor.getSyntaxScheme().getStyle(Token.LITERAL_NUMBER_DECIMAL_INT).foreground = new Color(0, 200, 200);
+        
+        
     }
 
     private void newFile() {
