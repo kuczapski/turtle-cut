@@ -29,9 +29,12 @@ import javax.swing.UIManager;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
-import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 import org.fife.ui.rsyntaxtextarea.Theme;
+import org.fife.ui.rsyntaxtextarea.Token;
+import org.fife.ui.rsyntaxtextarea.TokenMakerFactory;
 import org.fife.ui.rtextarea.RTextScrollPane;
+
+import edu.kuczapski.turtlecut.scripting.AntlrTokenMaker;
 
 public class MainWindow extends JFrame {
 
@@ -193,16 +196,28 @@ public class MainWindow extends JFrame {
         toolBar.add(saveAsButton);
         toolBar.add(sampleButton);
 
+        
+        
         // Create the text editor on the left with syntax highlighting
+        
+        TokenMakerFactory.setDefaultInstance(AntlrTokenMaker.FACTORY);
+        
         textEditor = new RSyntaxTextArea(20, 60);
-        textEditor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
-        textEditor.setCodeFoldingEnabled(true);
+        
+        //textEditor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
+        //textEditor.setCodeFoldingEnabled(true);
+        
+        textEditor.setSyntaxEditingStyle("Turtle Cut");
+        
 
+        
+        
+        
         RTextScrollPane textScrollPane = new RTextScrollPane(textEditor);
 
         // Create the canvas on the right
         canvas = new JPanel();
-        canvas.setBackground(Color.WHITE);
+        canvas.setBackground(Color.darkGray);
 
         // Create a split pane to divide the frame
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, textScrollPane, canvas);
@@ -220,11 +235,17 @@ public class MainWindow extends JFrame {
 
         // Apply a theme for better visual appearance (optional)
         try {
-            Theme theme = Theme.load(getClass().getResourceAsStream("/org/fife/ui/rsyntaxtextarea/themes/eclipse.xml"));
+            Theme theme = Theme.load(getClass().getResourceAsStream("/org/fife/ui/rsyntaxtextarea/themes/dark.xml"));
             theme.apply(textEditor);
         } catch (IOException e) {
             e.printStackTrace();
         }
+        
+        textEditor.getSyntaxScheme().getStyle(Token.ERROR_CHAR).underline = true;
+        textEditor.getSyntaxScheme().getStyle(Token.ERROR_CHAR).foreground = Color.red;
+        
+        textEditor.getSyntaxScheme().getStyle(Token.IDENTIFIER).foreground = Color.CYAN;
+        textEditor.getSyntaxScheme().getStyle(Token.FUNCTION).foreground = Color.ORANGE;
     }
 
     private void newFile() {
