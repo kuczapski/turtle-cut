@@ -2,8 +2,14 @@ package edu.kuczapski.turtlecut;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
+import java.awt.image.ColorModel;
+import java.awt.image.WritableRaster;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -26,6 +32,10 @@ import javax.swing.JSplitPane;
 import javax.swing.JToolBar;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
+import javax.swing.event.CaretEvent;
+import javax.swing.event.CaretListener;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
 import org.fife.ui.autocomplete.AutoCompletion;
@@ -39,16 +49,29 @@ import org.fife.ui.rsyntaxtextarea.TokenMakerFactory;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
 import edu.kuczapski.turtlecut.scripting.AntlrTokenMaker;
+import edu.kuczapski.turtlecut.scripting.Cutter;
+import edu.kuczapski.turtlecut.scripting.RenderingThread;
 import edu.kuczapski.turtlecut.scripting.TurtleParser;
 
 public class MainWindow extends JFrame {
 
     private static final String YOUR_APPLICATION_NAME = "Turtle Cut";
+    private static final int CANVAS_BORDER = 10;
+    
 	private RSyntaxTextArea textEditor;
     private JPanel canvas;
     private File currentFile; // To store the currently loaded file
     private String lastDirectory; // To store the last selected directory
+    
+    private BufferedImage currentCutImage = null; 
+    
+    private Cutter cutter = new Cutter(300,300, 0.25);
+    {
+    	cutter.setDrawingListener(this::onNewCanvasImage);
+    }
 
+    private RenderingThread renderingThread = new RenderingThread();
+    
     public MainWindow() {
         super(YOUR_APPLICATION_NAME);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -170,17 +193,21 @@ public class MainWindow extends JFrame {
         TokenMakerFactory.setDefaultInstance(AntlrTokenMaker.FACTORY);
         
         textEditor = new RSyntaxTextArea(20, 60);
-        
-        //textEditor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
-        //textEditor.setCodeFoldingEnabled(true);
-        
-        textEditor.setSyntaxEditingStyle("Turtle Cut");   
+       
+        textEditor.setSyntaxEditingStyle("Turtle Cut");    
         
         RTextScrollPane textScrollPane = new RTextScrollPane(textEditor);
 
         // Create the canvas on the right
-        canvas = new JPanel();
+        canvas = new JPanel() {
+        	@Override
+        	public void paint(Graphics g) {
+        		super.paint(g);
+        		doCanvasPaint(g);
+        	}
+        };
         canvas.setBackground(Color.darkGray);
+        
 
         // Create a split pane to divide the frame
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, textScrollPane, canvas);
@@ -203,6 +230,12 @@ public class MainWindow extends JFrame {
         } catch (IOException e) {
             e.printStackTrace();
         }
+       
+        
+        Font font = textEditor.getFont();
+        font = new Font(font.getName(), font.getStyle(), 16);
+        
+        textEditor.setFont(font);
         
         textEditor.getSyntaxScheme().getStyle(Token.ERROR_CHAR).underline = true;
         textEditor.getSyntaxScheme().getStyle(Token.ERROR_CHAR).foreground = Color.red;
@@ -219,9 +252,31 @@ public class MainWindow extends JFrame {
         ac.install(textEditor);
         
         
+        cutter.execute("", 0, 0);
+        
+        textEditor.getDocument().addDocumentListener(new DocumentListener() {
+
+    	   @Override
+    	   public void removeUpdate(DocumentEvent e) {}
+
+    	   @Override
+    	   public void insertUpdate(DocumentEvent e) {}
+
+    	   @Override
+    	   public void changedUpdate(DocumentEvent e) {
+    		   renderingThread.requestJob(cutter, textEditor.getText() , 0.0, textEditor.getCaretLineNumber()+1);
+    	   }
+       });
+        textEditor.addCaretListener(new CaretListener() {
+			@Override
+			public void caretUpdate(CaretEvent e) {
+				renderingThread.requestJob(cutter, textEditor.getText() , 0.0, textEditor.getCaretLineNumber()+1);
+			}
+		});
+        
     }
 
-    private void newFile() {
+	private void newFile() {
         // Add your logic for creating a new file (clearing content, resetting variables, etc.)
         textEditor.setText("");
         currentFile = null;
@@ -300,12 +355,6 @@ public class MainWindow extends JFrame {
     }
     
     private CompletionProvider createCompletionProvider() {
-
-        // A DefaultCompletionProvider is the simplest concrete implementation
-        // of CompletionProvider. This provider has no understanding of
-        // language semantics. It simply checks the text entered up to the
-        // caret position for a match against known completions. This is all
-        // that is needed in the majority of cases.
         DefaultCompletionProvider provider = new DefaultCompletionProvider();
         
     	for(String tokenName:TurtleParser.tokenNames) {
@@ -314,29 +363,77 @@ public class MainWindow extends JFrame {
     		}
     	}
     
-
-//        // Add completions for all Java keywords. A BasicCompletion is just
-//        // a straightforward word completion.
-//        provider.addCompletion(new BasicCompletion(provider, "abstract"));
-//        provider.addCompletion(new BasicCompletion(provider, "assert"));
-//        provider.addCompletion(new BasicCompletion(provider, "break"));
-//        provider.addCompletion(new BasicCompletion(provider, "case"));
-//        // ... etc ...
-//        provider.addCompletion(new BasicCompletion(provider, "transient"));
-//        provider.addCompletion(new BasicCompletion(provider, "try"));
-//        provider.addCompletion(new BasicCompletion(provider, "void"));
-//        provider.addCompletion(new BasicCompletion(provider, "volatile"));
-//        provider.addCompletion(new BasicCompletion(provider, "while"));
-//
-//        // Add a couple of "shorthand" completions. These completions don't
-//        // require the input text to be the same thing as the replacement text.
-//        provider.addCompletion(new ShorthandCompletion(provider, "sysout",
-//              "System.out.println(", "System.out.println("));
-//        provider.addCompletion(new ShorthandCompletion(provider, "syserr",
-//              "System.err.println(", "System.err.println("));
-
         return provider;
 
      }
+
+	private void onNewCanvasImage(BufferedImage image) {
+	 
+		
+		BufferedImage clone = deepCopy(image);
+		SwingUtilities.invokeLater(() -> {
+			this.currentCutImage = clone;
+			canvas.repaint();
+			/*
+			canvas.setSize(clone.getWidth() + 2*CANVAS_BORDER, clone.getHeight() + 2*CANVAS_BORDER);
+			Graphics g =  canvas.getGraphics();
+			g.setColor(Color.BLACK);
+			g.fillRect(0,0, canvas.getWidth(), canvas.getHeight());
+			g.drawImage(clone, CANVAS_BORDER, CANVAS_BORDER, null);
+			*/
+		});
+	}
+	
+	public static BufferedImage deepCopy(BufferedImage bi) {
+		  ColorModel cm = bi.getColorModel();
+		  boolean isAlphaPremultiplied = cm.isAlphaPremultiplied();
+		  WritableRaster raster = bi.copyData(bi.getRaster().createCompatibleWritableRaster());
+		  return new BufferedImage(cm, raster, isAlphaPremultiplied, null);
+	}
+	
+    protected void doCanvasPaint(Graphics g) {
+    	BufferedImage img = currentCutImage;
+    	
+    	if(img==null) return;
+		
+    	Rectangle bounds =  canvas.getBounds();//t g.getClipBounds();
+		 
+		
+		 int maxWidth = (bounds.width - CANVAS_BORDER*2);
+		 int maxHeight = (bounds.height - CANVAS_BORDER*2);
+		 
+		 int drawWidth = img.getWidth();
+		 int drawHeight = img.getHeight();
+		 
+		 double widthScale = 1;
+		 double heightScale = 1;
+		 
+		 while(drawWidth*widthScale*2 < maxWidth) {
+			 widthScale *= 2;
+		 }
+		 
+		 while(drawHeight*heightScale*2 < maxHeight) {
+			 heightScale *= 2;
+		 }
+		 
+		 
+		 if(maxWidth<drawWidth) {
+			 widthScale = (double)maxWidth/drawWidth;
+		 }
+		 
+		 if(maxWidth<drawWidth) {
+			 heightScale = (double)maxHeight/drawHeight;
+		 }
+		 
+		 double scale = Math.min(widthScale, heightScale);
+		 
+		 drawWidth = (int) (drawWidth * scale);
+		 drawHeight = (int) (drawHeight * scale);
+				 		 
+		g.drawImage( img.getScaledInstance(drawWidth, drawHeight, java.awt.Image.SCALE_SMOOTH), bounds.width/2 -  drawWidth/2, bounds.height/2 - drawHeight/2,  null);
+				 
+	}
+    
+    
 }
 

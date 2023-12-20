@@ -44,6 +44,6 @@ NUM: INT ('.' INT)?;
 INT: [0-9]+;
 
 
-WS: [ \t\r\n]+ -> skip;
+WS: [ \t\r\n]+;
 
 UNKNOWN: .;

@@ -1,15 +1,23 @@
 package edu.kuczapski.turtlecut.scripting;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
-import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Stroke;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.util.function.Consumer;
+
+import javax.imageio.ImageIO;
 
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ConsoleErrorListener;
 import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.tree.RuleNode;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import org.apache.commons.math3.geometry.euclidean.twod.Vector2D;
 
@@ -27,17 +35,20 @@ import edu.kuczapski.turtlecut.scripting.TurtleParser.StartCoordinateContext;
 
 public class Cutter extends TurtleBaseVisitor<Object>{
 	
-	public static enum CursorState{
+	private static final BasicStroke HIGHLIGHT_STROKE = new BasicStroke(4.0f);
+	private static final BasicStroke DEFAULT_STROKE = new BasicStroke(0);
+	
+	private BufferedImage turtleImage;
+
+	public enum CursorState{
 		IDLE, DRAWING, CUTTING
 	}
-	
 	
 	public static final Color WORKSHEET_COLOR = new Color(200, 180, 130); 
 	public static final Color CUT_COLOR = new Color(0, 0, 0);
 	public static final Color DRAW_COLOR = new Color(50*3, 30*3, 0*3);
-	public static final Color MAJOR_GRID_COLOR = new Color(255,255,255,100); //new Color(200 * 2 / 3, 180 * 2 / 3, 130 * 2/3);
-	public static final Color MINOR_GRID_COLOR = new Color(255,255,255,50); // new Color(200 * 5 / 6, 180 * 5 / 6, 130 * 6/6);
-	
+	public static final Color MAJOR_GRID_COLOR = new Color(255,255,255,100); 
+	public static final Color MINOR_GRID_COLOR = new Color(255,255,255,50); 
 	
 	private double canvasWidthMM;
 	private double canvasHeightMM;
@@ -45,27 +56,48 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 
 	private BufferedImage image;
 
-
-	private Graphics graphics;
+	private Graphics2D graphics;
 	
 	private Vector2D curPos;
 	private double curAngle;
 	
 	private CursorState curState = CursorState.IDLE;
-
 	
+	private Consumer<BufferedImage> drawingListener = null;
+
+	private boolean stopExecution = false;
+	private int currentLine;
+	
+	private boolean animateDrawing = false;
+	private double drawnLenght = 0;
+	private long startNanos;
+	private long drawingSpeed;
 	
 	public Cutter(double canvasWidthMM, double canvasHeightMM, double pixelSizeMM) {
 		this.canvasWidthMM = canvasWidthMM;
 		this.canvasHeightMM = canvasHeightMM;
 		this.pixelSizeMM = pixelSizeMM;
 		
+		try {
+			this.turtleImage = ImageIO.read(new File("turtle.png"));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
 		image = new BufferedImage((int)(canvasWidthMM / pixelSizeMM), (int)(canvasHeightMM/pixelSizeMM), BufferedImage.TYPE_4BYTE_ABGR);
 		
-		this.graphics =  image.getGraphics();
+		this.graphics =  (Graphics2D) image.getGraphics();
 		
 		clearCanvas();
 
+	}
+	
+	public void setStopExecution() {
+		this.stopExecution = true;
+	}
+	
+	public void setDrawingListener(Consumer<BufferedImage> drawingListener) {
+		this.drawingListener = drawingListener;
 	}
 	
 	public void requestImage(Consumer<BufferedImage> imgConsumer) {
@@ -74,52 +106,91 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 		}
 	}
 	
-	public void execute(String program, double speedMMPS, int curentLine) {
+	public void drawTurtle(Vector2D position, double angle) {
+		AffineTransform prevTransform = graphics.getTransform();
+		try {
+			int px = (int) (position.getX() / pixelSizeMM);
+			int py = (int) ((canvasHeightMM - position.getY()) / pixelSizeMM);
+			AffineTransform affineTransform = new  AffineTransform();
+			affineTransform.translate(px, py);
+			affineTransform.rotate(-(angle - Math.PI / 2));
+			graphics.setTransform(affineTransform);
+			graphics.drawImage(turtleImage, -turtleImage.getWidth()/2, -turtleImage.getHeight()/2, null);
+		}finally {
+			graphics.setTransform(prevTransform);
+		}
+		
+	}
+	
+	public void execute(String program, double speedMMPS, int currentLine) {
+		
+		this.stopExecution = false;
+		this.currentLine = currentLine;
 		
 		CharStream input = CharStreams.fromString(program);    
         TurtleLexer lexer = new TurtleLexer(input);
         lexer.addErrorListener(new ConsoleErrorListener());
         
-        CommonTokenStream tokens = new CommonTokenStream(lexer);
+        CommonTokenStream tokens = new CommonTokenStream(new FilteredTokenSource(lexer));
         
         TurtleParser parser = new TurtleParser(tokens);
         parser.addErrorListener(new ConsoleErrorListener());  
       
         
         TurtleParser.ProgramContext tree = parser.program();
-        
-        System.out.println(tree.toStringTree());
 
         visitProgram(tree);
+
+        drawTurtle(curPos, curAngle);
+        
+        //drawTurtle(graphics, 100, 100, 0, 0);
+        notifyDrawingListeners();
+        
+     
 	}
+	
+	
+	private void notifyDrawingListeners() {
+		synchronized (image) {
+			if(drawingListener!=null) {
+				drawingListener.accept(image);
+			}
+		}
+	}
+
 	private void clearCanvas() {
 		this.graphics.setColor(WORKSHEET_COLOR);
 		this.graphics.fillRect(0, 0, image.getWidth(), image.getHeight());	
 		this.curPos = new Vector2D(canvasWidthMM / 2,  canvasHeightMM / 2);
+		this.curAngle = Math.PI / 2;
 		
 		
 		for(int x=0;x<canvasWidthMM;x+=1) {
-			graphics.setColor( x%10 == 0 ? MAJOR_GRID_COLOR : MINOR_GRID_COLOR);
-			int px= (int) Math.round(x/pixelSizeMM);
-			graphics.drawLine( px, 0, px, image.getHeight());
+			drawLine(x, 0, x, canvasHeightMM, x%10 == 0 ? MAJOR_GRID_COLOR : MINOR_GRID_COLOR, null);
 		}
 		
 		for(int y=0;y<canvasHeightMM;y+=1) {
-			graphics.setColor( y%10 == 0 ? MAJOR_GRID_COLOR : MINOR_GRID_COLOR);
-			int py= (int) Math.round(y/pixelSizeMM);
-			graphics.drawLine( 0, py, image.getWidth(), py);
+			drawLine( 0, y, canvasWidthMM, y , y%10 == 0 ? MAJOR_GRID_COLOR : MINOR_GRID_COLOR, null);
 		}
 	}
 	
 	@Override
 	public Object visitProgram(ProgramContext ctx) {
+		if(stopExecution) return null;
+		
 		clearCanvas();
 		return super.visitProgram(ctx);
 	}
 
+	@Override
+	protected boolean shouldVisitNextChild(RuleNode node, Object currentResult) {
+		if(stopExecution) return false;
+		return super.shouldVisitNextChild(node, currentResult);
+	}
 
 	@Override
 	public Object visitRepeate(RepeateContext ctx) {
+		if(stopExecution) return null;
 		
 		TerminalNode countToken = ctx.NUM();
 		
@@ -134,6 +205,8 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 	
 	@Override
 	public Object visitCut(CutContext ctx) {
+		if(stopExecution) return null;
+		
 		CursorState prevState = curState;
 		try {
 			curState = CursorState.CUTTING;
@@ -145,6 +218,8 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 
 	@Override
 	public Object visitDraw(DrawContext ctx) {
+		if(stopExecution) return null;
+		
 		CursorState prevState = curState;
 		try {
 			curState = CursorState.DRAWING;
@@ -156,39 +231,58 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 	
 	@Override
 	public Object visitLine(LineContext ctx) {
-		System.out.println("drawing line");
+		if(stopExecution) return null;
 		
 		curPos = visitStartCoordinate(ctx.startCoordinate());
 		
 		Vector2D endPos = visitEndCoordinate(ctx.endCoordinate());
-		
-		System.out.println("Drawing line: "+curPos+" - "+endPos);
 		
 		Vector2D dir = endPos.subtract(curPos);
 		double newAngle =  Math.atan2(dir.getY(), dir.getX());
 		if(Double.isFinite(newAngle)) {
 			curAngle = newAngle;
 		}
-		
-		
+			
 		if(curState == CursorState.CUTTING || curState == CursorState.DRAWING) {
 			synchronized (image) {
-
-				graphics.setColor(getCurentDrawingColor());
-				graphics.drawLine( 
-						(int)Math.round(curPos.getX() / pixelSizeMM), 
-						(int)Math.round(curPos.getY() / pixelSizeMM),
-						(int)Math.round(endPos.getX() / pixelSizeMM),
-						(int)Math.round(endPos.getY() / pixelSizeMM)
-						);
-
+				if(ctx.getStart().getLine()<=currentLine && ctx.getStop().getLine()>=currentLine) {
+					drawLine(curPos, endPos, getCurentDrawingColor(), HIGHLIGHT_STROKE);
+				}else {
+					drawLine(curPos, endPos, getCurentDrawingColor(), DEFAULT_STROKE);
+				}
 			}
 		}
 		
 		curPos = endPos;
-		
-		
+			
 		return null;
+	}
+
+	private void drawLine(Vector2D p1, Vector2D p2, Color color, Stroke stroke) {
+		drawLine(p1.getX(), p1.getY(), p2.getX(), p2.getY(), color, stroke);
+	}
+	private void drawLine(double p1x, double p1y, double p2x, double p2y, Color color, Stroke stroke) {
+		
+		
+		
+		Stroke prevStroke = graphics.getStroke();
+		Color prevColor = graphics.getColor();
+		
+		
+		try {
+			if(color!=null)	graphics.setColor(color);
+			if(stroke!=null) graphics.setStroke(stroke);
+			
+			graphics.drawLine( 
+					(int)Math.round(p1x / pixelSizeMM), 
+					(int)Math.round((canvasHeightMM - p1y) / pixelSizeMM),
+					(int)Math.round(p2x / pixelSizeMM),
+					(int)Math.round((canvasHeightMM - p2y) / pixelSizeMM)
+			);
+		}finally {
+			graphics.setColor(prevColor);
+			graphics.setStroke(prevStroke);
+		}
 	}
 	
 	private Color getCurentDrawingColor() {
