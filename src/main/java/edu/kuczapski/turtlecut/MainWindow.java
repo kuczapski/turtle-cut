@@ -8,8 +8,6 @@ import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
-import java.awt.image.ColorModel;
-import java.awt.image.WritableRaster;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -55,7 +53,8 @@ import edu.kuczapski.turtlecut.scripting.TurtleParser;
 
 public class MainWindow extends JFrame {
 
-    private static final String YOUR_APPLICATION_NAME = "Turtle Cut";
+    private static final double DEFAULT_CUTTING_SPEED = 20;
+	private static final String YOUR_APPLICATION_NAME = "Turtle Cut";
     private static final int CANVAS_BORDER = 10;
     
 	private RSyntaxTextArea textEditor;
@@ -111,6 +110,13 @@ public class MainWindow extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
                 saveFileAs();
+            }
+        };
+        
+        Action playAction = new AbstractAction("Play", new ImageIcon("turtle-small.png")) {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                play();
             }
         };
 
@@ -178,7 +184,7 @@ public class MainWindow extends JFrame {
         JButton openButton = new JButton(openAction);
         JButton saveButton = new JButton(saveAction);
         JButton saveAsButton = new JButton(saveAsAction);
-        JButton sampleButton = new JButton(new ImageIcon("sample.png")); // You can replace this with an appropriate image
+        JButton sampleButton = new JButton(playAction); // You can replace this with an appropriate image
 
         toolBar.add(newButton);
         toolBar.add(openButton);
@@ -276,6 +282,10 @@ public class MainWindow extends JFrame {
         
     }
 
+	protected void play() {
+		renderingThread.requestJob(cutter, textEditor.getText() , DEFAULT_CUTTING_SPEED , textEditor.getCaretLineNumber()+1);
+	}
+
 	private void newFile() {
         // Add your logic for creating a new file (clearing content, resetting variables, etc.)
         textEditor.setText("");
@@ -368,27 +378,13 @@ public class MainWindow extends JFrame {
      }
 
 	private void onNewCanvasImage(BufferedImage image) {
-	 
+	 	
+		BufferedImage clone = Cutter.deepCopy(image);
 		
-		BufferedImage clone = deepCopy(image);
 		SwingUtilities.invokeLater(() -> {
 			this.currentCutImage = clone;
 			canvas.repaint();
-			/*
-			canvas.setSize(clone.getWidth() + 2*CANVAS_BORDER, clone.getHeight() + 2*CANVAS_BORDER);
-			Graphics g =  canvas.getGraphics();
-			g.setColor(Color.BLACK);
-			g.fillRect(0,0, canvas.getWidth(), canvas.getHeight());
-			g.drawImage(clone, CANVAS_BORDER, CANVAS_BORDER, null);
-			*/
 		});
-	}
-	
-	public static BufferedImage deepCopy(BufferedImage bi) {
-		  ColorModel cm = bi.getColorModel();
-		  boolean isAlphaPremultiplied = cm.isAlphaPremultiplied();
-		  WritableRaster raster = bi.copyData(bi.getRaster().createCompatibleWritableRaster());
-		  return new BufferedImage(cm, raster, isAlphaPremultiplied, null);
 	}
 	
     protected void doCanvasPaint(Graphics g) {

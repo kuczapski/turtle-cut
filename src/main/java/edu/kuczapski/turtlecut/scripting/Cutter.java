@@ -6,6 +6,8 @@ import java.awt.Graphics2D;
 import java.awt.Stroke;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
+import java.awt.image.ColorModel;
+import java.awt.image.WritableRaster;
 import java.io.File;
 import java.io.IOException;
 import java.util.function.Consumer;
@@ -69,9 +71,11 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 	private int currentLine;
 	
 	private boolean animateDrawing = false;
-	private double drawnLenght = 0;
+	private double spentTimeBudgetSec = 0;
 	private long startNanos;
-	private long drawingSpeed;
+	
+	private double drawingSpeed = 20;
+	private double turningSpeed = 1;
 	
 	public Cutter(double canvasWidthMM, double canvasHeightMM, double pixelSizeMM) {
 		this.canvasWidthMM = canvasWidthMM;
@@ -106,7 +110,7 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 		}
 	}
 	
-	public void drawTurtle(Vector2D position, double angle) {
+	public void drawTurtle(Graphics2D graphics, Vector2D position, double angle) {
 		AffineTransform prevTransform = graphics.getTransform();
 		try {
 			int px = (int) (position.getX() / pixelSizeMM);
@@ -126,6 +130,7 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 		
 		this.stopExecution = false;
 		this.currentLine = currentLine;
+		this.drawingSpeed = speedMMPS;
 		
 		CharStream input = CharStreams.fromString(program);    
         TurtleLexer lexer = new TurtleLexer(input);
@@ -141,10 +146,9 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 
         visitProgram(tree);
 
-        drawTurtle(curPos, curAngle);
-        
-        //drawTurtle(graphics, 100, 100, 0, 0);
-        notifyDrawingListeners();
+        if(!stopExecution) {
+        	notifyDrawingListeners();
+        }
         
      
 	}
@@ -152,6 +156,8 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 	
 	private void notifyDrawingListeners() {
 		synchronized (image) {
+			BufferedImage image = deepCopy(this.image);
+			drawTurtle((Graphics2D)image.getGraphics(),curPos, curAngle);
 			if(drawingListener!=null) {
 				drawingListener.accept(image);
 			}
@@ -177,8 +183,11 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 	@Override
 	public Object visitProgram(ProgramContext ctx) {
 		if(stopExecution) return null;
-		
+		animateDrawing = false;
 		clearCanvas();
+		animateDrawing = drawingSpeed>0;
+		startNanos = System.nanoTime();
+		spentTimeBudgetSec = 0;
 		return super.visitProgram(ctx);
 	}
 
@@ -263,15 +272,50 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 	}
 	private void drawLine(double p1x, double p1y, double p2x, double p2y, Color color, Stroke stroke) {
 		
-		
+		double timeNeeded = Math.sqrt((p2x-p1x)*(p2x-p1x) + (p2y-p1y)*(p2y-p1y)) / drawingSpeed;
 		
 		Stroke prevStroke = graphics.getStroke();
 		Color prevColor = graphics.getColor();
-		
+
 		
 		try {
 			if(color!=null)	graphics.setColor(color);
 			if(stroke!=null) graphics.setStroke(stroke);
+			
+			if(animateDrawing) {
+				double progress = 0;
+				do {
+					if(stopExecution) return;
+					double timeElapsedSec = (System.nanoTime() - startNanos) / 1e9; 
+					double elapsedLocalTimeBudget = timeElapsedSec - spentTimeBudgetSec;
+					progress = elapsedLocalTimeBudget / timeNeeded;
+					if(progress<0) progress = 0;
+				
+					if(progress<1.0) {
+						storeCurrentState();
+						
+						double p3x = p1x + (p2x - p1x) * progress;
+						double p3y = p1y + (p2y - p1y) * progress;
+						
+						curPos = new Vector2D(p3x, p3y);
+						
+						graphics.drawLine( 
+								(int)Math.round(p1x / pixelSizeMM), 
+								(int)Math.round((canvasHeightMM - p1y) / pixelSizeMM),
+								(int)Math.round(p3x / pixelSizeMM),
+								(int)Math.round((canvasHeightMM - p3y) / pixelSizeMM)
+						);
+						
+						notifyDrawingListeners();
+						
+						restoreCurrentState();
+						
+					}
+					
+				}while(progress<1.0);
+				spentTimeBudgetSec += timeNeeded;
+			}
+			
 			
 			graphics.drawLine( 
 					(int)Math.round(p1x / pixelSizeMM), 
@@ -283,8 +327,21 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 			graphics.setColor(prevColor);
 			graphics.setStroke(prevStroke);
 		}
+	
+		
+		if(animateDrawing) notifyDrawingListeners();
 	}
 	
+	private void restoreCurrentState() {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private void storeCurrentState() {
+		// TODO Auto-generated method stub
+		
+	}
+
 	private Color getCurentDrawingColor() {
 		switch (curState) {
 			case CUTTING: return CUT_COLOR;
@@ -365,7 +422,13 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 			 	default: throw new IllegalArgumentException("Unknown direction: "+ctx.start.toString());
 			 }
 		}
-		
+	}
+	
+	public static BufferedImage deepCopy(BufferedImage bi) {
+		  ColorModel cm = bi.getColorModel();
+		  boolean isAlphaPremultiplied = cm.isAlphaPremultiplied();
+		  WritableRaster raster = bi.copyData(bi.getRaster().createCompatibleWritableRaster());
+		  return new BufferedImage(cm, raster, isAlphaPremultiplied, null);
 	}
 	
 }
