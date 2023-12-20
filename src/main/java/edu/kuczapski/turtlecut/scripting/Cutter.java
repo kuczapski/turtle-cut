@@ -11,6 +11,7 @@ import java.awt.image.WritableRaster;
 import java.io.File;
 import java.io.IOException;
 import java.util.function.Consumer;
+import java.util.function.DoubleConsumer;
 
 import javax.imageio.ImageIO;
 
@@ -75,7 +76,7 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 	private long startNanos;
 	
 	private double drawingSpeed = 20;
-	private double turningSpeed = 1;
+	private double turningSpeed = 4;
 	
 	public Cutter(double canvasWidthMM, double canvasHeightMM, double pixelSizeMM) {
 		this.canvasWidthMM = canvasWidthMM;
@@ -249,7 +250,9 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 		Vector2D dir = endPos.subtract(curPos);
 		double newAngle =  Math.atan2(dir.getY(), dir.getX());
 		if(Double.isFinite(newAngle)) {
-			curAngle = newAngle;
+			
+			turnTo(newAngle);
+			//curAngle = newAngle;
 		}
 			
 		if(curState == CursorState.CUTTING || curState == CursorState.DRAWING) {
@@ -267,6 +270,23 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 		return null;
 	}
 
+	private void turnTo(double newAngle) {	
+		
+		double dif = newAngle-curAngle;
+		
+		if(dif>Math.PI) dif = dif - 2*Math.PI;
+		if(dif<-Math.PI) dif = dif + 2*Math.PI;
+		
+		double _dif = dif;
+		
+		double prevAngle = curAngle;
+		animate( Math.abs(dif)/turningSpeed, progress->{
+			curAngle = prevAngle + _dif*progress;
+		});
+		
+		curAngle = newAngle;
+	}
+
 	private void drawLine(Vector2D p1, Vector2D p2, Color color, Stroke stroke) {
 		drawLine(p1.getX(), p1.getY(), p2.getX(), p2.getY(), color, stroke);
 	}
@@ -282,39 +302,23 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 			if(color!=null)	graphics.setColor(color);
 			if(stroke!=null) graphics.setStroke(stroke);
 			
-			if(animateDrawing) {
-				double progress = 0;
-				do {
-					if(stopExecution) return;
-					double timeElapsedSec = (System.nanoTime() - startNanos) / 1e9; 
-					double elapsedLocalTimeBudget = timeElapsedSec - spentTimeBudgetSec;
-					progress = elapsedLocalTimeBudget / timeNeeded;
-					if(progress<0) progress = 0;
-				
-					if(progress<1.0) {
-						storeCurrentState();
-						
-						double p3x = p1x + (p2x - p1x) * progress;
-						double p3y = p1y + (p2y - p1y) * progress;
-						
-						curPos = new Vector2D(p3x, p3y);
-						
-						graphics.drawLine( 
-								(int)Math.round(p1x / pixelSizeMM), 
-								(int)Math.round((canvasHeightMM - p1y) / pixelSizeMM),
-								(int)Math.round(p3x / pixelSizeMM),
-								(int)Math.round((canvasHeightMM - p3y) / pixelSizeMM)
+			animate(timeNeeded, progress->{
+				double p3x = p1x + (p2x - p1x) * progress;
+				double p3y = p1y + (p2y - p1y) * progress;
+
+				curPos = new Vector2D(p3x, p3y);
+
+				graphics.drawLine( 
+						(int)Math.round(p1x / pixelSizeMM), 
+						(int)Math.round((canvasHeightMM - p1y) / pixelSizeMM),
+						(int)Math.round(p3x / pixelSizeMM),
+						(int)Math.round((canvasHeightMM - p3y) / pixelSizeMM)
 						);
-						
-						notifyDrawingListeners();
-						
-						restoreCurrentState();
-						
-					}
-					
-				}while(progress<1.0);
-				spentTimeBudgetSec += timeNeeded;
-			}
+
+				notifyDrawingListeners();
+
+				restoreCurrentState();
+			});
 			
 			
 			graphics.drawLine( 
@@ -331,7 +335,32 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 		
 		if(animateDrawing) notifyDrawingListeners();
 	}
-	
+	private void animate(double timeNeeded, DoubleConsumer drawer) {
+		if(animateDrawing) {
+			double progress = 0;
+			do {
+				if(stopExecution) return;
+				double timeElapsedSec = (System.nanoTime() - startNanos) / 1e9; 
+				double elapsedLocalTimeBudget = timeElapsedSec - spentTimeBudgetSec;
+				progress = elapsedLocalTimeBudget / timeNeeded;
+				if(progress<0) progress = 0;
+			
+				if(progress<1.0) {
+					storeCurrentState();
+					
+					drawer.accept(progress);
+					
+					notifyDrawingListeners();
+					
+					restoreCurrentState();
+					
+				}
+				
+			}while(progress<1.0);
+			
+			spentTimeBudgetSec += timeNeeded;
+		}
+	}
 	private void restoreCurrentState() {
 		// TODO Auto-generated method stub
 		
