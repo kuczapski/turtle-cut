@@ -35,6 +35,8 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 	public static final Color WORKSHEET_COLOR = new Color(200, 180, 130); 
 	public static final Color CUT_COLOR = new Color(0, 0, 0);
 	public static final Color DRAW_COLOR = new Color(50*3, 30*3, 0*3);
+	public static final Color MAJOR_GRID_COLOR = new Color(255,255,255,100); //new Color(200 * 2 / 3, 180 * 2 / 3, 130 * 2/3);
+	public static final Color MINOR_GRID_COLOR = new Color(255,255,255,50); // new Color(200 * 5 / 6, 180 * 5 / 6, 130 * 6/6);
 	
 	
 	private double canvasWidthMM;
@@ -84,7 +86,6 @@ public class Cutter extends TurtleBaseVisitor<Object>{
         parser.addErrorListener(new ConsoleErrorListener());  
       
         
-        
         TurtleParser.ProgramContext tree = parser.program();
         
         System.out.println(tree.toStringTree());
@@ -95,6 +96,19 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 		this.graphics.setColor(WORKSHEET_COLOR);
 		this.graphics.fillRect(0, 0, image.getWidth(), image.getHeight());	
 		this.curPos = new Vector2D(canvasWidthMM / 2,  canvasHeightMM / 2);
+		
+		
+		for(int x=0;x<canvasWidthMM;x+=1) {
+			graphics.setColor( x%10 == 0 ? MAJOR_GRID_COLOR : MINOR_GRID_COLOR);
+			int px= (int) Math.round(x/pixelSizeMM);
+			graphics.drawLine( px, 0, px, image.getHeight());
+		}
+		
+		for(int y=0;y<canvasHeightMM;y+=1) {
+			graphics.setColor( y%10 == 0 ? MAJOR_GRID_COLOR : MINOR_GRID_COLOR);
+			int py= (int) Math.round(y/pixelSizeMM);
+			graphics.drawLine( 0, py, image.getWidth(), py);
+		}
 	}
 	
 	@Override

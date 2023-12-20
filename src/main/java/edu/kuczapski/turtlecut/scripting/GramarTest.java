@@ -12,7 +12,7 @@ public class GramarTest {
     	
     	String program = new String( Files.readAllBytes(Path.of("examples/first.cut")));
     	
-    	Cutter cutter = new Cutter(400, 300, 0.5);
+    	Cutter cutter = new Cutter(400, 300, 0.25);
     	
     	cutter.execute(program, 0, 0);
     	
