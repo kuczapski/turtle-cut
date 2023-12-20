@@ -4,11 +4,11 @@ grammar Turtle;
 program: commandBlock*;
 
 
-command: cut | draw | repeate;
+command: cut | draw | moveto | repeate ;
 
 commandBlock: ('[' command* ']') | command;
 
-repeate: REPEATKEY INT commandBlock;
+repeate: REPEATKEY NUM commandBlock;
 REPEATKEY: 'repeta';
 
 cut: CUTKEY geometryBlock;
@@ -33,14 +33,17 @@ CIRCLEKEY: 'cerc';
 startCoordinate: ('de la' coordinate)| ();
 
 endCoordinate: ('pana la' coordinate)| 
-			   ('spre' degrees ('cu lungime de')|('de') length );
+			   ('spre' degrees (('cu lungime de')|('de')) length );
 
 coordinate: NUM ',' NUM;
-degrees: 'stanga' | 'dreapta' | 'inainte' | (INT 'grade') ;
+degrees: 'stanga' | 'dreapta' | 'inainte' | (NUM 'grade') ;
 length: NUM ('mm'|'cm'|);
 
-INT: [0-9]+;
-NUM: [0-9]+('.'[0-9]);
-WS: [ \t\r\n]+;
 
-UNKNOWN: .; 
+NUM: INT ('.' INT)?;
+INT: [0-9]+;
+
+
+WS: [ \t\r\n]+ -> skip;
+
+UNKNOWN: .;

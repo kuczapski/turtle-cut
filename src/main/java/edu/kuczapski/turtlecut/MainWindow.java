@@ -28,6 +28,10 @@ import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
+import org.fife.ui.autocomplete.AutoCompletion;
+import org.fife.ui.autocomplete.BasicCompletion;
+import org.fife.ui.autocomplete.CompletionProvider;
+import org.fife.ui.autocomplete.DefaultCompletionProvider;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.Theme;
 import org.fife.ui.rsyntaxtextarea.Token;
@@ -35,16 +39,18 @@ import org.fife.ui.rsyntaxtextarea.TokenMakerFactory;
 import org.fife.ui.rtextarea.RTextScrollPane;
 
 import edu.kuczapski.turtlecut.scripting.AntlrTokenMaker;
+import edu.kuczapski.turtlecut.scripting.TurtleParser;
 
 public class MainWindow extends JFrame {
 
-    private RSyntaxTextArea textEditor;
+    private static final String YOUR_APPLICATION_NAME = "Turtle Cut";
+	private RSyntaxTextArea textEditor;
     private JPanel canvas;
     private File currentFile; // To store the currently loaded file
     private String lastDirectory; // To store the last selected directory
 
     public MainWindow() {
-        super("Your Application Name");
+        super(YOUR_APPLICATION_NAME);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         JMenuBar menuBar = new JMenuBar();
@@ -151,45 +157,6 @@ public class MainWindow extends JFrame {
         JButton saveAsButton = new JButton(saveAsAction);
         JButton sampleButton = new JButton(new ImageIcon("sample.png")); // You can replace this with an appropriate image
 
-        newButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                newFile();
-            }
-        });
-
-        openButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                openFile();
-            }
-        });
-
-        saveButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (currentFile != null) {
-                    saveToFile(currentFile);
-                } else {
-                    saveFileAs();
-                }
-            }
-        });
-
-        saveAsButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                saveFileAs();
-            }
-        });
-
-        sampleButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                // Your custom action for the sample button
-            }
-        });
-
         toolBar.add(newButton);
         toolBar.add(openButton);
         toolBar.add(saveButton);
@@ -207,11 +174,7 @@ public class MainWindow extends JFrame {
         //textEditor.setSyntaxEditingStyle(SyntaxConstants.SYNTAX_STYLE_JAVA);
         //textEditor.setCodeFoldingEnabled(true);
         
-        textEditor.setSyntaxEditingStyle("Turtle Cut");
-        
-
-        
-        
+        textEditor.setSyntaxEditingStyle("Turtle Cut");   
         
         RTextScrollPane textScrollPane = new RTextScrollPane(textEditor);
 
@@ -243,12 +206,17 @@ public class MainWindow extends JFrame {
         
         textEditor.getSyntaxScheme().getStyle(Token.ERROR_CHAR).underline = true;
         textEditor.getSyntaxScheme().getStyle(Token.ERROR_CHAR).foreground = Color.red;
+        textEditor.getSyntaxScheme().getStyle(Token.ERROR_CHAR).background = null;
         
         textEditor.getSyntaxScheme().getStyle(Token.IDENTIFIER).foreground = Color.CYAN;
         textEditor.getSyntaxScheme().getStyle(Token.FUNCTION).foreground = Color.ORANGE;
         
         textEditor.getSyntaxScheme().getStyle(Token.LITERAL_NUMBER_FLOAT).foreground = new Color(0, 200, 200);
         textEditor.getSyntaxScheme().getStyle(Token.LITERAL_NUMBER_DECIMAL_INT).foreground = new Color(0, 200, 200);
+        
+        CompletionProvider provider = createCompletionProvider();
+        AutoCompletion ac = new AutoCompletion(provider);
+        ac.install(textEditor);
         
         
     }
@@ -257,7 +225,7 @@ public class MainWindow extends JFrame {
         // Add your logic for creating a new file (clearing content, resetting variables, etc.)
         textEditor.setText("");
         currentFile = null;
-        setTitle("Your Application Name");
+        setTitle(YOUR_APPLICATION_NAME);
     }
 
     private void openFile() {
@@ -275,7 +243,7 @@ public class MainWindow extends JFrame {
         if (returnValue == JFileChooser.APPROVE_OPTION) {
             currentFile = fileChooser.getSelectedFile();
             lastDirectory = currentFile.getParent(); // Store the last selected directory
-            setTitle("Your Application Name - " + currentFile.getName()); // Update window title
+            setTitle(YOUR_APPLICATION_NAME + " - " + currentFile.getName()); // Update window title
 
             try (BufferedReader reader = new BufferedReader(new FileReader(currentFile))) {
                 textEditor.read(reader, null);
@@ -314,14 +282,14 @@ public class MainWindow extends JFrame {
             }
 
             lastDirectory = currentFile.getParent(); // Store the last selected directory
-            setTitle("Your Application Name - " + currentFile.getName()); // Update window title
+            setTitle(YOUR_APPLICATION_NAME + " - " + currentFile.getName()); // Update window title
 
             saveToFile(currentFile);
         }
     }
 
     private void showAboutDialog() {
-        JOptionPane.showMessageDialog(this, "Your Application Name\nVersion 1.0\nCopyright © 2023 Your Company",
+        JOptionPane.showMessageDialog(this, YOUR_APPLICATION_NAME+"\nVersion 1.0\nCopyright © 2023 Kuczapski Artur",
                 "About", JOptionPane.INFORMATION_MESSAGE);
     }
 
@@ -330,5 +298,45 @@ public class MainWindow extends JFrame {
             new MainWindow();
         });
     }
+    
+    private CompletionProvider createCompletionProvider() {
+
+        // A DefaultCompletionProvider is the simplest concrete implementation
+        // of CompletionProvider. This provider has no understanding of
+        // language semantics. It simply checks the text entered up to the
+        // caret position for a match against known completions. This is all
+        // that is needed in the majority of cases.
+        DefaultCompletionProvider provider = new DefaultCompletionProvider();
+        
+    	for(String tokenName:TurtleParser.tokenNames) {
+    		if(tokenName.startsWith("'")) {
+    			 provider.addCompletion(new BasicCompletion(provider, tokenName.substring(1, tokenName.length()-1)));
+    		}
+    	}
+    
+
+//        // Add completions for all Java keywords. A BasicCompletion is just
+//        // a straightforward word completion.
+//        provider.addCompletion(new BasicCompletion(provider, "abstract"));
+//        provider.addCompletion(new BasicCompletion(provider, "assert"));
+//        provider.addCompletion(new BasicCompletion(provider, "break"));
+//        provider.addCompletion(new BasicCompletion(provider, "case"));
+//        // ... etc ...
+//        provider.addCompletion(new BasicCompletion(provider, "transient"));
+//        provider.addCompletion(new BasicCompletion(provider, "try"));
+//        provider.addCompletion(new BasicCompletion(provider, "void"));
+//        provider.addCompletion(new BasicCompletion(provider, "volatile"));
+//        provider.addCompletion(new BasicCompletion(provider, "while"));
+//
+//        // Add a couple of "shorthand" completions. These completions don't
+//        // require the input text to be the same thing as the replacement text.
+//        provider.addCompletion(new ShorthandCompletion(provider, "sysout",
+//              "System.out.println(", "System.out.println("));
+//        provider.addCompletion(new ShorthandCompletion(provider, "syserr",
+//              "System.err.println(", "System.err.println("));
+
+        return provider;
+
+     }
 }
 

@@ -1,4 +1,23 @@
-taie linie de la 10,10 pana la 100,100
-deseneaza[
-	linie de 100 mm
+
+
+repeta 4 [
+	taie [
+	  linie spre dreapta de 10 cm
+	]
+]
+
+du-te la 25,20
+
+
+repeta 4 [
+	deseneaza [
+	  linie spre dreapta de 10 cm
+	]
+]
+
+repeta 4 [
+	taie [
+	  linie de la 11 , 12 pana la 101.0,102
+	  linie pana la 10,10
+	]
 ]
