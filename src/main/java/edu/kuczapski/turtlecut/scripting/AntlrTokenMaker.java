@@ -58,6 +58,8 @@ public class AntlrTokenMaker extends TokenMakerBase {
 			case TurtleLexer.LINEKEY: 
 			case TurtleLexer.CIRCLEKEY:
 			case TurtleLexer.MOVETOKEY:
+			case TurtleLexer.SETCANVASKEY:
+			case TurtleLexer.SETCANVASKEY2:
 				   return Token.IDENTIFIER;
 			
 			case TurtleLexer.CUTKEY: 

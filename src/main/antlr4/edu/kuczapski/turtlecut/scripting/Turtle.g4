@@ -1,8 +1,11 @@
 grammar Turtle;
 
 
-program: commandBlock*;
+program: setCanvas commandBlock*;
 
+setCanvas: ( SETCANVASKEY length SETCANVASKEY2 length) | ();
+SETCANVASKEY: 'placaj cu latimea de';
+SETCANVASKEY2: 'si cu inaltimea de';
 
 command: cut | draw | moveto | repeate ;
 

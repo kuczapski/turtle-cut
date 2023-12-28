@@ -34,6 +34,7 @@ import edu.kuczapski.turtlecut.scripting.TurtleParser.LineContext;
 import edu.kuczapski.turtlecut.scripting.TurtleParser.MovetoContext;
 import edu.kuczapski.turtlecut.scripting.TurtleParser.ProgramContext;
 import edu.kuczapski.turtlecut.scripting.TurtleParser.RepeateContext;
+import edu.kuczapski.turtlecut.scripting.TurtleParser.SetCanvasContext;
 import edu.kuczapski.turtlecut.scripting.TurtleParser.StartCoordinateContext;
 
 public class Cutter extends TurtleBaseVisitor<Object>{
@@ -77,10 +78,20 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 	
 	private double drawingSpeed = 20;
 	private double turningSpeed = 4;
+	private double maxCanvasWidthMM;
+	private double maxCanvasHeightMM;
+	private double minCanvasWidthMM;
+	private double minCanvasHeightMM;
 	
 	public Cutter(double canvasWidthMM, double canvasHeightMM, double pixelSizeMM) {
 		this.canvasWidthMM = canvasWidthMM;
 		this.canvasHeightMM = canvasHeightMM;
+		this.maxCanvasWidthMM = canvasWidthMM;
+		this.maxCanvasHeightMM = canvasHeightMM;
+		this.minCanvasWidthMM = canvasWidthMM / 5;
+		this.minCanvasHeightMM = canvasHeightMM / 5;
+		
+		
 		this.pixelSizeMM = pixelSizeMM;
 		
 		try {
@@ -94,6 +105,26 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 		this.graphics =  (Graphics2D) image.getGraphics();
 		
 		clearCanvas();
+
+	}
+	
+	public void setCanvasSize(double canvasWidthMM, double canvasHeightMM) {
+
+		boolean wasAnimating = animateDrawing;
+		animateDrawing = false;
+
+		try {
+			if(canvasWidthMM>maxCanvasWidthMM)  canvasWidthMM = maxCanvasWidthMM;
+			if(canvasHeightMM>maxCanvasHeightMM)  canvasHeightMM = maxCanvasHeightMM;
+			if(canvasWidthMM<minCanvasWidthMM)  canvasWidthMM = minCanvasWidthMM;
+			if(canvasHeightMM<minCanvasHeightMM)  canvasHeightMM = minCanvasHeightMM;
+
+			this.canvasWidthMM = canvasWidthMM;
+			this.canvasHeightMM = canvasHeightMM;
+			clearCanvas();
+		}finally {	
+			animateDrawing = wasAnimating;
+		}
 
 	}
 	
@@ -166,6 +197,11 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 	}
 
 	private void clearCanvas() {
+		
+		image = new BufferedImage((int)(canvasWidthMM / pixelSizeMM), (int)(canvasHeightMM/pixelSizeMM), BufferedImage.TYPE_4BYTE_ABGR);
+		
+		this.graphics =  (Graphics2D) image.getGraphics();
+		
 		this.graphics.setColor(WORKSHEET_COLOR);
 		this.graphics.fillRect(0, 0, image.getWidth(), image.getHeight());	
 		this.curPos = new Vector2D(canvasWidthMM / 2,  canvasHeightMM / 2);
@@ -364,11 +400,11 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 	private void restoreCurrentState() {
 		// TODO Auto-generated method stub
 		
+		
 	}
 
 	private void storeCurrentState() {
 		// TODO Auto-generated method stub
-		
 	}
 
 	private Color getCurentDrawingColor() {
@@ -451,6 +487,14 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 			 	default: throw new IllegalArgumentException("Unknown direction: "+ctx.start.toString());
 			 }
 		}
+	}
+	
+	@Override
+	public Object visitSetCanvas(SetCanvasContext ctx) {
+		if(ctx.length().size()==2) {
+			setCanvasSize(visitLength(ctx.length(0)), visitLength(ctx.length(1)));
+		}
+		return null;
 	}
 	
 	public static BufferedImage deepCopy(BufferedImage bi) {
