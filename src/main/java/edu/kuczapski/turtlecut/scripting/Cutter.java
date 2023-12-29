@@ -90,6 +90,8 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 	private int graphicsHeight;
 	private int graphicsWidth;
 	
+	private final GCodeGenerator gcodeGenerator;
+	
 	public Cutter(double canvasWidthMM, double canvasHeightMM, double pixelSizeMM) {
 		this.canvasWidthMM = canvasWidthMM;
 		this.canvasHeightMM = canvasHeightMM;
@@ -100,6 +102,9 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 		
 		
 		this.pixelSizeMM = pixelSizeMM;
+		
+		
+		this.gcodeGenerator = new GCodeGenerator(canvasWidthMM, canvasHeightMM);
 		
 		try {
 			this.turtleImage = ImageIO.read(new File("turtle.png"));
@@ -205,6 +210,8 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 	}
 
 	private void clearCanvas() {
+		
+		gcodeGenerator.init(canvasWidthMM, canvasHeightMM);
 		
 		this.graphicsHeight = (int) ((canvasHeightMM+2*BORDER)/ pixelSizeMM);
 		this.graphicsWidth = (int) ((canvasWidthMM+2*BORDER)/ pixelSizeMM);
@@ -340,6 +347,12 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 					drawLine(curPos, endPos, getCurentDrawingColor(), HIGHLIGHT_STROKE);
 				}else {
 					drawLine(curPos, endPos, getCurentDrawingColor(), DEFAULT_STROKE);
+				}
+				
+				if(curState == CursorState.CUTTING) {
+                    gcodeGenerator.cutLine(curPos.getX(), curPos.getY(), endPos.getX(), endPos.getY());
+				}else if(curState == CursorState.DRAWING) {
+					gcodeGenerator.burnLine(curPos.getX(), curPos.getY(), endPos.getX(), endPos.getY());
 				}
 			}
 		}
@@ -566,6 +579,11 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 		  boolean isAlphaPremultiplied = cm.isAlphaPremultiplied();
 		  WritableRaster raster = bi.copyData(bi.getRaster().createCompatibleWritableRaster());
 		  return new BufferedImage(cm, raster, isAlphaPremultiplied, null);
+	}
+
+	public String generateGCode(String program) {
+		execute(program, 0, 0);
+		return gcodeGenerator.generate();
 	}
 	
 }

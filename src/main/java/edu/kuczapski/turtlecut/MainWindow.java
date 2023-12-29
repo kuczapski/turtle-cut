@@ -119,6 +119,13 @@ public class MainWindow extends JFrame {
                 play();
             }
         };
+        
+		Action exportGCodeAction = new AbstractAction("Export GCode", new ImageIcon("turtle-small.png")) {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				exportGCode();
+			}
+		};
 
         JMenuItem newItem = new JMenuItem(newAction);
         JMenuItem openItem = new JMenuItem(openAction);
@@ -184,13 +191,16 @@ public class MainWindow extends JFrame {
         JButton openButton = new JButton(openAction);
         JButton saveButton = new JButton(saveAction);
         JButton saveAsButton = new JButton(saveAsAction);
-        JButton sampleButton = new JButton(playAction); // You can replace this with an appropriate image
+        JButton playButton = new JButton(playAction); 
+        JButton exoprtGCodeButton = new JButton(exportGCodeAction);
+        
 
         toolBar.add(newButton);
         toolBar.add(openButton);
         toolBar.add(saveButton);
         toolBar.add(saveAsButton);
-        toolBar.add(sampleButton);
+        toolBar.add(playButton);
+        toolBar.add(exoprtGCodeButton);
 
         
         
@@ -286,6 +296,44 @@ public class MainWindow extends JFrame {
 		renderingThread.requestJob(cutter, textEditor.getText() , DEFAULT_CUTTING_SPEED , textEditor.getCaretLineNumber()+1);
 	}
 
+	protected void exportGCode() {
+		JFileChooser fileChooser = new JFileChooser();
+		FileNameExtensionFilter filter = new FileNameExtensionFilter("GCode Files (.gcode)", "gcode");
+		fileChooser.setFileFilter(filter);
+
+		// Set the initial directory if it exists
+		if (lastDirectory != null) {
+			fileChooser.setCurrentDirectory(new File(lastDirectory));
+		}
+		
+	
+		
+		//if current file is not null use the name of the current file but with .gcode extension
+		if (currentFile != null) {
+			fileChooser.setSelectedFile(new File(currentFile.getAbsolutePath().replace(".cut", ".gcode")));
+		}
+		
+		int returnValue = fileChooser.showSaveDialog(this);
+
+		if (returnValue == JFileChooser.APPROVE_OPTION) {
+			currentFile = fileChooser.getSelectedFile();
+
+			// Append ".cut" extension if not already present
+			if (!currentFile.getName().toLowerCase().endsWith(".gcode")) {
+				currentFile = new File(currentFile.getAbsolutePath() + ".gcode");
+			}
+
+			lastDirectory = currentFile.getParent(); // Store the last selected directory
+			setTitle(YOUR_APPLICATION_NAME + " - " + currentFile.getName()); // Update window title
+
+			try (BufferedWriter writer = new BufferedWriter(new FileWriter(currentFile))) {
+				writer.write(cutter.generateGCode(textEditor.getText()));
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
 	private void newFile() {
         // Add your logic for creating a new file (clearing content, resetting variables, etc.)
         textEditor.setText("");
