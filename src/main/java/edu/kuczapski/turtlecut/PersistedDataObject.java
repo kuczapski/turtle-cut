@@ -63,7 +63,12 @@ public class PersistedDataObject<T> {
 	}
 	
 	public void saveData() throws IOException {
-        FileUtils.writeStringToFile(new File(storagePath + name + DEFAULT_EXTENSION), serializer.apply(data));
+		File file = new File(storagePath + name + DEFAULT_EXTENSION);
+		if(data!=null) {
+			FileUtils.writeStringToFile(file, serializer.apply(data));
+		}else {
+			FileUtils.delete(file);
+		}
         isDataDirty = false;
     }
 	

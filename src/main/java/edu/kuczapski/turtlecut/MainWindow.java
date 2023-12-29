@@ -59,7 +59,7 @@ public class MainWindow extends JFrame {
     
 	private RSyntaxTextArea textEditor;
     private JPanel canvas;
-    private File currentFile; // To store the currently loaded file
+    private final PersistedDataObject<File> currentFile = new PersistedDataObject<>(YOUR_APPLICATION_NAME, File::getAbsolutePath, File::new); // To store the currently loaded file
     private final PersistedDataObject<String> lastDirectory = new PersistedDataObject<>("last-folder", e->e, e->e) ; // To store the last selected directory
     private final PersistedDataObject<String> lastEditedProgram = new PersistedDataObject<>("last-edited-program", e->e, e->e) ; // To store the last selected directory
     
@@ -99,8 +99,8 @@ public class MainWindow extends JFrame {
         Action saveAction = new AbstractAction("Save", UIManager.getIcon("FileView.floppyDriveIcon")) {
             @Override
             public void actionPerformed(ActionEvent e) {
-                if (currentFile != null) {
-                    saveToFile(currentFile);
+                if (currentFile.get() != null) {
+                    saveToFile(currentFile.get());
                 } else {
                     saveFileAs();
                 }
@@ -297,6 +297,9 @@ public class MainWindow extends JFrame {
 			textEditor.setText(lastEditedProgram.get());
 		}
     
+		if(currentFile.get() != null) {
+			 setTitle(YOUR_APPLICATION_NAME + " - " + currentFile.get().getName()); // Update window title
+		}
     }
 
 	protected void play() {
@@ -316,24 +319,24 @@ public class MainWindow extends JFrame {
 	
 		
 		//if current file is not null use the name of the current file but with .gcode extension
-		if (currentFile != null) {
-			fileChooser.setSelectedFile(new File(currentFile.getAbsolutePath().replace(".cut", ".gcode")));
+		if (currentFile.get() != null) {
+			fileChooser.setSelectedFile(new File(currentFile.get().getAbsolutePath().replace(".cut", ".gcode")));
 		}
 		
 		int returnValue = fileChooser.showSaveDialog(this);
 
 		if (returnValue == JFileChooser.APPROVE_OPTION) {
-			currentFile = fileChooser.getSelectedFile();
+			currentFile.set( fileChooser.getSelectedFile());
 
 			// Append ".cut" extension if not already present
-			if (!currentFile.getName().toLowerCase().endsWith(".gcode")) {
-				currentFile = new File(currentFile.getAbsolutePath() + ".gcode");
+			if (!currentFile.get().getName().toLowerCase().endsWith(".gcode")) {
+				currentFile.set( new File(currentFile.get().getAbsolutePath() + ".gcode"));
 			}
 
-			lastDirectory.set(currentFile.getParent()); // Store the last selected directory
-			setTitle(YOUR_APPLICATION_NAME + " - " + currentFile.getName()); // Update window title
+			lastDirectory.set(currentFile.get().getParent()); // Store the last selected directory
+			setTitle(YOUR_APPLICATION_NAME + " - " + currentFile.get().getName()); // Update window title
 
-			try (BufferedWriter writer = new BufferedWriter(new FileWriter(currentFile))) {
+			try (BufferedWriter writer = new BufferedWriter(new FileWriter(currentFile.get()))) {
 				writer.write(cutter.generateGCode(textEditor.getText()));
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -344,7 +347,7 @@ public class MainWindow extends JFrame {
 	private void newFile() {
         // Add your logic for creating a new file (clearing content, resetting variables, etc.)
         textEditor.setText("");
-        currentFile = null;
+        currentFile.set(null);
         setTitle(YOUR_APPLICATION_NAME);
     }
 
@@ -361,11 +364,11 @@ public class MainWindow extends JFrame {
         int returnValue = fileChooser.showOpenDialog(this);
 
         if (returnValue == JFileChooser.APPROVE_OPTION) {
-            currentFile = fileChooser.getSelectedFile();
-            lastDirectory.set(currentFile.getParent()); // Store the last selected directory
-            setTitle(YOUR_APPLICATION_NAME + " - " + currentFile.getName()); // Update window title
+            currentFile.set( fileChooser.getSelectedFile());
+            lastDirectory.set(currentFile.get().getParent()); // Store the last selected directory
+            setTitle(YOUR_APPLICATION_NAME + " - " + currentFile.get().getName()); // Update window title
 
-            try (BufferedReader reader = new BufferedReader(new FileReader(currentFile))) {
+            try (BufferedReader reader = new BufferedReader(new FileReader(currentFile.get()))) {
                 textEditor.read(reader, null);
             } catch (IOException e) {
                 e.printStackTrace();
@@ -394,17 +397,17 @@ public class MainWindow extends JFrame {
         int returnValue = fileChooser.showSaveDialog(this);
 
         if (returnValue == JFileChooser.APPROVE_OPTION) {
-            currentFile = fileChooser.getSelectedFile();
+            currentFile.set( fileChooser.getSelectedFile());
 
             // Append ".cut" extension if not already present
-            if (!currentFile.getName().toLowerCase().endsWith(".cut")) {
-                currentFile = new File(currentFile.getAbsolutePath() + ".cut");
+            if (!currentFile.get().getName().toLowerCase().endsWith(".cut")) {
+                currentFile.set(new File(currentFile.get().getAbsolutePath() + ".cut"));
             }
 
-            lastDirectory.set(currentFile.getParent()); // Store the last selected directory
-            setTitle(YOUR_APPLICATION_NAME + " - " + currentFile.getName()); // Update window title
+            lastDirectory.set(currentFile.get().getParent()); // Store the last selected directory
+            setTitle(YOUR_APPLICATION_NAME + " - " + currentFile.get().getName()); // Update window title
 
-            saveToFile(currentFile);
+            saveToFile(currentFile.get());
         }
     }
 
