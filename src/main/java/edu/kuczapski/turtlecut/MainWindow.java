@@ -60,7 +60,8 @@ public class MainWindow extends JFrame {
 	private RSyntaxTextArea textEditor;
     private JPanel canvas;
     private File currentFile; // To store the currently loaded file
-    private String lastDirectory; // To store the last selected directory
+    private final PersistedDataObject<String> lastDirectory = new PersistedDataObject<>("last-folder", e->e, e->e) ; // To store the last selected directory
+    private final PersistedDataObject<String> lastEditedProgram = new PersistedDataObject<>("last-edited-program", e->e, e->e) ; // To store the last selected directory
     
     private BufferedImage currentCutImage = null; 
     
@@ -280,16 +281,22 @@ public class MainWindow extends JFrame {
 
     	   @Override
     	   public void changedUpdate(DocumentEvent e) {
-    		   renderingThread.requestJob(cutter, textEditor.getText() , 0.0, textEditor.getCaretLineNumber()+1);
+    		String program = textEditor.getText();
+    		lastEditedProgram.set(program);
+			renderingThread.requestJob(cutter, program , 0.0, textEditor.getCaretLineNumber()+1);
     	   }
        });
-        textEditor.addCaretListener(new CaretListener() {
+       textEditor.addCaretListener(new CaretListener() {
 			@Override
 			public void caretUpdate(CaretEvent e) {
 				renderingThread.requestJob(cutter, textEditor.getText() , 0.0, textEditor.getCaretLineNumber()+1);
 			}
-		});
+	    });
         
+		if (lastEditedProgram.get() != null) {
+			textEditor.setText(lastEditedProgram.get());
+		}
+    
     }
 
 	protected void play() {
@@ -302,8 +309,8 @@ public class MainWindow extends JFrame {
 		fileChooser.setFileFilter(filter);
 
 		// Set the initial directory if it exists
-		if (lastDirectory != null) {
-			fileChooser.setCurrentDirectory(new File(lastDirectory));
+		if (lastDirectory.get() != null) {
+			fileChooser.setCurrentDirectory(new File(lastDirectory.get()));
 		}
 		
 	
@@ -323,7 +330,7 @@ public class MainWindow extends JFrame {
 				currentFile = new File(currentFile.getAbsolutePath() + ".gcode");
 			}
 
-			lastDirectory = currentFile.getParent(); // Store the last selected directory
+			lastDirectory.set(currentFile.getParent()); // Store the last selected directory
 			setTitle(YOUR_APPLICATION_NAME + " - " + currentFile.getName()); // Update window title
 
 			try (BufferedWriter writer = new BufferedWriter(new FileWriter(currentFile))) {
@@ -347,15 +354,15 @@ public class MainWindow extends JFrame {
         fileChooser.setFileFilter(filter);
 
         // Set the initial directory if it exists
-        if (lastDirectory != null) {
-            fileChooser.setCurrentDirectory(new File(lastDirectory));
+        if (lastDirectory.get() != null) {
+            fileChooser.setCurrentDirectory(new File(lastDirectory.get()));
         }
 
         int returnValue = fileChooser.showOpenDialog(this);
 
         if (returnValue == JFileChooser.APPROVE_OPTION) {
             currentFile = fileChooser.getSelectedFile();
-            lastDirectory = currentFile.getParent(); // Store the last selected directory
+            lastDirectory.set(currentFile.getParent()); // Store the last selected directory
             setTitle(YOUR_APPLICATION_NAME + " - " + currentFile.getName()); // Update window title
 
             try (BufferedReader reader = new BufferedReader(new FileReader(currentFile))) {
@@ -380,8 +387,8 @@ public class MainWindow extends JFrame {
         fileChooser.setFileFilter(filter);
 
         // Set the initial directory if it exists
-        if (lastDirectory != null) {
-            fileChooser.setCurrentDirectory(new File(lastDirectory));
+        if (lastDirectory.get() != null) {
+            fileChooser.setCurrentDirectory(new File(lastDirectory.get()));
         }
 
         int returnValue = fileChooser.showSaveDialog(this);
@@ -394,7 +401,7 @@ public class MainWindow extends JFrame {
                 currentFile = new File(currentFile.getAbsolutePath() + ".cut");
             }
 
-            lastDirectory = currentFile.getParent(); // Store the last selected directory
+            lastDirectory.set(currentFile.getParent()); // Store the last selected directory
             setTitle(YOUR_APPLICATION_NAME + " - " + currentFile.getName()); // Update window title
 
             saveToFile(currentFile);
