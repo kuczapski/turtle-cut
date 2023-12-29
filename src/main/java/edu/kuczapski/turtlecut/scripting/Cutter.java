@@ -2,7 +2,9 @@ package edu.kuczapski.turtlecut.scripting;
 
 import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Font;
 import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.Stroke;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
@@ -39,6 +41,7 @@ import edu.kuczapski.turtlecut.scripting.TurtleParser.StartCoordinateContext;
 
 public class Cutter extends TurtleBaseVisitor<Object>{
 	
+	private static final double LABELS_FONT_HEIGHT_MM = 3.5;
 	private static final BasicStroke HIGHLIGHT_STROKE = new BasicStroke(4.0f);
 	private static final BasicStroke DEFAULT_STROKE = new BasicStroke(0);
 	
@@ -53,6 +56,8 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 	public static final Color DRAW_COLOR = new Color(50*3, 30*3, 0*3);
 	public static final Color MAJOR_GRID_COLOR = new Color(255,255,255,100); 
 	public static final Color MINOR_GRID_COLOR = new Color(255,255,255,50); 
+	
+	public static final double BORDER = 10;
 	
 	private double canvasWidthMM;
 	private double canvasHeightMM;
@@ -82,6 +87,8 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 	private double maxCanvasHeightMM;
 	private double minCanvasWidthMM;
 	private double minCanvasHeightMM;
+	private int graphicsHeight;
+	private int graphicsWidth;
 	
 	public Cutter(double canvasWidthMM, double canvasHeightMM, double pixelSizeMM) {
 		this.canvasWidthMM = canvasWidthMM;
@@ -145,12 +152,13 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 	public void drawTurtle(Graphics2D graphics, Vector2D position, double angle) {
 		AffineTransform prevTransform = graphics.getTransform();
 		try {
-			int px = (int) (position.getX() / pixelSizeMM);
-			int py = (int) ((canvasHeightMM - position.getY()) / pixelSizeMM);
+			int px = (int) ((position.getX()+BORDER) / pixelSizeMM);
+			int py = (int) (graphicsHeight -  (position.getY() - BORDER) / pixelSizeMM);
 			AffineTransform affineTransform = new  AffineTransform();
 			affineTransform.translate(px, py);
 			affineTransform.rotate(-(angle - Math.PI / 2));
 			graphics.setTransform(affineTransform);
+			graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
 			graphics.drawImage(turtleImage, -turtleImage.getWidth()/2, -turtleImage.getHeight()/2, null);
 		}finally {
 			graphics.setTransform(prevTransform);
@@ -198,12 +206,46 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 
 	private void clearCanvas() {
 		
-		image = new BufferedImage((int)(canvasWidthMM / pixelSizeMM), (int)(canvasHeightMM/pixelSizeMM), BufferedImage.TYPE_4BYTE_ABGR);
+		this.graphicsHeight = (int) ((canvasHeightMM+2*BORDER)/ pixelSizeMM);
+		this.graphicsWidth = (int) ((canvasWidthMM+2*BORDER)/ pixelSizeMM);
 		
+		image = new BufferedImage(graphicsWidth, graphicsHeight, BufferedImage.TYPE_4BYTE_ABGR);
+	
 		this.graphics =  (Graphics2D) image.getGraphics();
+
+		graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);	
+		
+		graphics.setColor(Color.WHITE);
+
+		graphics.setFont(graphics.getFont().deriveFont( Font.BOLD,(int)(LABELS_FONT_HEIGHT_MM / pixelSizeMM)));
+		
+		for(int x=0;x<=canvasWidthMM;x+=10) {
+			drawText(x + BORDER, BORDER - LABELS_FONT_HEIGHT_MM/2 , (x/10)+".0");
+		}
+		
+		for(int y=0;y<=canvasHeightMM;y+=10) {
+			drawText(BORDER/2, BORDER + y + LABELS_FONT_HEIGHT_MM / 3 , (y/10)+".0");
+		}
+		
+		graphics.setColor(Color.GRAY);
+		
+		for(int x=0;x<=canvasWidthMM;x+=10) {
+			drawText(x + BORDER, canvasHeightMM + BORDER + LABELS_FONT_HEIGHT_MM , (x/10)+".0");
+		}
+		
+		for(int y=0;y<=canvasHeightMM;y+=10) {
+			drawText(BORDER/2 + canvasWidthMM + BORDER , BORDER + y + LABELS_FONT_HEIGHT_MM / 3 , (y/10)+".0");
+		}
+		
+		this.graphicsHeight = (int) ((canvasHeightMM)/ pixelSizeMM);
+		this.graphicsWidth = (int) ((canvasWidthMM)/ pixelSizeMM);
+		
+		this.graphics = (Graphics2D) graphics.create((int) (BORDER/ pixelSizeMM), (int) (BORDER/ pixelSizeMM), graphicsWidth+1, graphicsHeight+1);
+		graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
 		
 		this.graphics.setColor(WORKSHEET_COLOR);
-		this.graphics.fillRect(0, 0, image.getWidth(), image.getHeight());	
+		this.graphics.fillRect(0, 0, image.getWidth(), image.getHeight());
+		
 		this.curPos = new Vector2D(canvasWidthMM / 2,  canvasHeightMM / 2);
 		this.curAngle = Math.PI / 2;
 		
@@ -215,13 +257,14 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 		for(int y=0;y<canvasHeightMM;y+=1) {
 			drawLine( 0, y, canvasWidthMM, y , y%10 == 0 ? MAJOR_GRID_COLOR : MINOR_GRID_COLOR, null);
 		}
+		
 	}
 	
 	@Override
 	public Object visitProgram(ProgramContext ctx) {
 		if(stopExecution) return null;
 		animateDrawing = false;
-		clearCanvas();
+		setCanvasSize(maxCanvasWidthMM, maxCanvasHeightMM);
 		animateDrawing = drawingSpeed>0;
 		startNanos = System.nanoTime();
 		spentTimeBudgetSec = 0;
@@ -371,6 +414,27 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 		
 		if(animateDrawing) notifyDrawingListeners();
 	}
+	
+	private void drawText(double p1x, double p1y,  String text) {
+		
+
+		//get text length in pixels
+		int textLength = graphics.getFontMetrics().stringWidth(text);
+
+		//get text height in pixels
+		int textHeight = graphics.getFontMetrics().getHeight();
+
+		graphics.drawString(
+				text,
+				(int)Math.round(p1x / pixelSizeMM) - textLength/2, 
+				(int)Math.round(graphicsHeight -  p1y / pixelSizeMM) + textHeight/2
+				);
+
+
+
+		if(animateDrawing) notifyDrawingListeners();
+	}
+	
 	private void animate(double timeNeeded, DoubleConsumer drawer) {
 		if(animateDrawing) {
 			double progress = 0;

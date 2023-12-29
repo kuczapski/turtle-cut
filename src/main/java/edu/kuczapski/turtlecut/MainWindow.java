@@ -64,7 +64,7 @@ public class MainWindow extends JFrame {
     
     private BufferedImage currentCutImage = null; 
     
-    private Cutter cutter = new Cutter(300,300, 0.25);
+    private Cutter cutter = new Cutter(400,400, 0.25);
     {
     	cutter.setDrawingListener(this::onNewCanvasImage);
     }
@@ -417,7 +417,7 @@ public class MainWindow extends JFrame {
 			 widthScale = (double)maxWidth/drawWidth;
 		 }
 		 
-		 if(maxWidth<drawWidth) {
+		 if(maxHeight<drawHeight) {
 			 heightScale = (double)maxHeight/drawHeight;
 		 }
 		 
