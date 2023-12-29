@@ -36,6 +36,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
+import org.apache.commons.io.FileUtils;
 import org.fife.ui.autocomplete.AutoCompletion;
 import org.fife.ui.autocomplete.BasicCompletion;
 import org.fife.ui.autocomplete.CompletionProvider;
@@ -53,7 +54,9 @@ import edu.kuczapski.turtlecut.scripting.TurtleParser;
 
 public class MainWindow extends JFrame {
 
-    private static final double DEFAULT_CUTTING_SPEED = 20;
+	private static final long serialVersionUID = 1L;
+	
+	private static final double DEFAULT_CUTTING_SPEED = 20;
 	private static final String YOUR_APPLICATION_NAME = "Turtle Cut";
     private static final int CANVAS_BORDER = 10;
     
@@ -377,11 +380,31 @@ public class MainWindow extends JFrame {
     }
 
     private void saveToFile(File file) {
+    	String bakFileName = null;
+    	if(file.exists()) {    		
+    		bakFileName = file.getAbsolutePath()+"."+System.currentTimeMillis()+".bak";
+			File backupFile = new File(bakFileName);
+    		try {
+    			org.apache.commons.io.FileUtils.copyFile(file, backupFile);              
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+    	}
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
             textEditor.write(writer);
         } catch (IOException e) {
             e.printStackTrace();
         }
+        
+        //compare back and new file content	
+        try {
+			if(bakFileName!=null && FileUtils.contentEquals(new File(bakFileName), file)) {
+				FileUtils.delete(new File(bakFileName));
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+        
     }
 
     private void saveFileAs() {
