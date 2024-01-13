@@ -586,4 +586,15 @@ public class Cutter extends TurtleBaseVisitor<Object>{
 		return gcodeGenerator.generate();
 	}
 	
+	public double getPixelSizeMM() {
+		return pixelSizeMM;
+	}
+	
+	public double getBorderSizeMM() {
+		return BORDER;
+	}
+
+	public double getCanvasHeightMM() {
+		return canvasHeightMM;
+	}
 }

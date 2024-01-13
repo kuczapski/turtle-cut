@@ -8,12 +8,16 @@ import java.util.List;
 import org.apache.commons.io.FileUtils;
 
 public class GCodeGenerator {
-	
-	public static final String GCODE_HEADER = "G00 G17 G40 G21 G54\n"
+	public static final String GCODE_HEADER =
+			  "; Turtle CUT 1.0\r\n"
+			+ "; GRBL device profile, absolute coords\n"
+			+ "; Bounds: X{MINX} Y{MINY} to X{MAXX} Y{MAXY}\n"
+			+"G00 G17 G40 G21 G54\n"
 			+ "G90\n"
 			+ "M4\n"
 			+ "M8\n"
-			+ "G1 F400\n";
+			+ "G28.2 XY\n"
+			+ "G1 F150\n";
 	
 	public static final String GCODE_FOOTER = "M9\n"
 			+ "G1S0\n"
@@ -22,7 +26,7 @@ public class GCodeGenerator {
 			+ "G0 X0.025 Y0.025\n"
 			+ "M2\n";
 	
-	public static final String CUT_CMD_SUFFIX = " S1000";
+	public static final String CUT_CMD_SUFFIX = " S600";
 	public static final String BURN_CMD_SUFFIX = " S100";
 	
 	
@@ -38,6 +42,11 @@ public class GCodeGenerator {
 	
 	private List<String> commands;
 	
+	private double minX;
+	private double minY;
+	private double maxX;
+	private double maxY;
+	
 	public GCodeGenerator(double maxWidth, double maxHeight) {
 		this.maxWidth = maxWidth;
 		this.maxHeight = maxHeight;
@@ -50,12 +59,17 @@ public class GCodeGenerator {
 		this.currentXOffset = (maxWidth - currentWidth)/2; 
 		this.currentYOffset = (maxHeight - currentHeight)/2;
 		
+		minX = Double.POSITIVE_INFINITY;
+		minY = Double.POSITIVE_INFINITY;
+		maxX = Double.NEGATIVE_INFINITY;
+		maxY = Double.NEGATIVE_INFINITY;
+		
 		commands = new ArrayList<>();
 	}
 	
 	public String generate() {
 		StringBuilder sb = new StringBuilder();
-		sb.append(GCODE_HEADER);
+		sb.append( replaceVars(GCODE_HEADER));
 		for (String command : commands) {
 			sb.append(command);
 			sb.append("\n");
@@ -64,6 +78,13 @@ public class GCodeGenerator {
 		return sb.toString();
 	}
 	
+	private String replaceVars(String text) {
+		return text.replace("{MINX}", getActualX(minX))
+				   .replace("{MINY}", getActualY(minY))
+				   .replace("{MAXX}", getActualX(maxX))
+				   .replace("{MAXY}", getActualY(maxY));
+	}
+
 	public void writeToFiles(String fileName) throws IOException {
 		String gcode = generate();
 		FileUtils.writeStringToFile(new File(fileName), gcode);
@@ -83,15 +104,18 @@ public class GCodeGenerator {
 	}
 	
 	public void moveTo(double x, double y) {
+		updateMinMax(x, y);
 		commands.add("G0 X" + getActualX(x) + " Y" +  getActualY(y) + " S0");
 	}
 	
 
 	public void cutTo(double x, double y) {
+		updateMinMax(x, y);
 		commands.add("G1 X" + getActualX(x) + " Y" + getActualY(y) + CUT_CMD_SUFFIX);
 	}
 	
 	public void burnTo(double x, double y) {
+		updateMinMax(x, y);
 		commands.add("G1 X" + getActualX(x) + " Y" + getActualY(y) + BURN_CMD_SUFFIX);
 	}
 	
@@ -117,5 +141,15 @@ public class GCodeGenerator {
 		stop();
 	}
 	
+	public void updateMinMax(double x, double y) {
+		if (x < minX)
+			minX = x;
+		if (x > maxX)
+			maxX = x;
+		if (y < minY)
+			minY = y;
+		if (y > maxY)
+			maxY = y;
+	}
 	
 }

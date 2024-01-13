@@ -1,8 +1,7 @@
-placaj cu latimea de 27 cm si cu inaltimea de 28cm
-du-te la 25,15
-repeta 100 [
- repeta 5 deseneaza linie spre 144 grade de 20mm
-  deseneaza linie spre 10 grade de 20mm
+placaj cu latimea de 21 cm si cu inaltimea de 297mm
+du-te la 12,18
+repeta 1 [
+ repeta 5 taie linie spre 144 grade de 100mm
 ]
 
    

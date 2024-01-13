@@ -67,6 +67,9 @@ public class MainWindow extends JFrame {
     private final PersistedDataObject<String> lastEditedProgram = new PersistedDataObject<>("last-edited-program", e->e, e->e) ; // To store the last selected directory
     
     private BufferedImage currentCutImage = null; 
+    private double currentCutImagePixelSizeMM = 0.1;
+    private double currentCutImageBorderSizeMM = 0.1;
+    private double currentCanvasHeightMM = 0.1;
     
     private Cutter cutter = new Cutter(400,400, 0.25);
     {
@@ -74,6 +77,12 @@ public class MainWindow extends JFrame {
     }
 
     private RenderingThread renderingThread = new RenderingThread();
+
+	private double drawScale;
+
+	private int drawOffsetX;
+
+	private int drawOffsetY;
     
     public MainWindow() {
         super(YOUR_APPLICATION_NAME);
@@ -303,6 +312,8 @@ public class MainWindow extends JFrame {
 		if(currentFile.get() != null) {
 			 setTitle(YOUR_APPLICATION_NAME + " - " + currentFile.get().getName()); // Update window title
 		}
+		
+		addMouseHint();
     }
 
 	protected void play() {
@@ -464,6 +475,9 @@ public class MainWindow extends JFrame {
 		
 		SwingUtilities.invokeLater(() -> {
 			this.currentCutImage = clone;
+			this.currentCutImagePixelSizeMM = cutter.getPixelSizeMM();
+			this.currentCutImageBorderSizeMM = cutter.getBorderSizeMM();
+			this.currentCanvasHeightMM = cutter.getCanvasHeightMM();
 			canvas.repaint();
 		});
 	}
@@ -506,11 +520,32 @@ public class MainWindow extends JFrame {
 		 
 		 drawWidth = (int) (drawWidth * scale);
 		 drawHeight = (int) (drawHeight * scale);
-				 		 
-		g.drawImage( img.getScaledInstance(drawWidth, drawHeight, java.awt.Image.SCALE_SMOOTH), bounds.width/2 -  drawWidth/2, bounds.height/2 - drawHeight/2,  null);
+		
+		 this.drawScale = scale;
+		 this.drawOffsetX = bounds.width/2 -  drawWidth/2;
+		 this.drawOffsetY = bounds.height/2 - drawHeight/2;
+		 
+		 
+		 g.drawImage( img.getScaledInstance(drawWidth, drawHeight, java.awt.Image.SCALE_SMOOTH), this.drawOffsetX, this.drawOffsetY,  null);
 				 
 	}
     
     
+    //add mouse hint to canvas that displays the current position of the mouse in the coordinate system of the cutter	
+	public void addMouseHint() {
+		canvas.addMouseMotionListener(new java.awt.event.MouseMotionAdapter() {
+            public void mouseMoved(java.awt.event.MouseEvent evt) {
+            	double x = Math.round((evt.getX() - drawOffsetX)/drawScale * currentCutImagePixelSizeMM - currentCutImageBorderSizeMM) / 10.0;
+            	double y = Math.round(currentCanvasHeightMM - ((evt.getY() - drawOffsetY)/drawScale * currentCutImagePixelSizeMM - currentCutImageBorderSizeMM)) / 10.0;
+            	
+            	if(x>=0 && y>=0) {
+            	canvas.setToolTipText("X: "+x+" cm, Y: "+y+" cm");
+				} else {
+					canvas.setToolTipText("");
+				}
+            	//canvas.setToolTipText("X: "+evt.getX()+", Y: "+evt.getY());
+            }
+        });
+	}
 }
 
